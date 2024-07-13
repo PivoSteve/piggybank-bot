@@ -44,9 +44,22 @@ async def process_new_currency(message: Message, state: FSMContext):
         user = get_user(message.from_user.id)
         await message.answer(f"✔ Валюта успешно изменена на {user[1]}.", reply_markup=keyboards.main_menu)
         await state.clear()
-        await state.set_state(SetupStates.awaiting_goal)
+        await state.set_state(SetupStates.waiting_for_goal)
     else:
         await message.answer("❌ Пожалуйста, введите корректный код валюты (например, USD, BYN, KZT).", reply_markup=keyboards.main_menu)
+
+@router.message(SetupStates.waiting_for_goal)
+async def change_goal(event: CallbackQuery | Message, state: FSMContext):
+    if isinstance(event, CallbackQuery):
+        user_id = event.from_user.id
+        await event.message.answer("❕ Теперь давай установим цель накопления.\nВведи сумму:", reply_markup=keyboards.main_menu)
+    elif isinstance(event, Message):
+        user_id = event.from_user.id
+        await event.answer("❕ Теперь давай установим цель накопления.\nВведи сумму:", reply_markup=keyboards.main_menu)
+        return
+
+    await state.update_data(user_id=user_id)
+    await state.set_state(PiggyBankStates.awaiting_goal)
 
 @router.message(PiggyBankStates.awaiting_goal)
 async def set_goal(message: Message, state: FSMContext):
