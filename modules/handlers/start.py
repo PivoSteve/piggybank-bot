@@ -30,8 +30,8 @@ async def cmd_start(message: Message, state: FSMContext):
     
     if user[1] == None and user[3] is None:
         await message.answer(f"👋 Привет, {user_name}! Я твоя личная копилка!\n🛠️ Для начала, давай настроим твою копилку.")
-        asyncio.sleep(1)
-        await message.answer("Выбери валюту для твоей копилки (например, USD, EUR, RUB):")
+        await asyncio.sleep(1)
+        await message.answer("Выбери валюту для твоей копилки (например, USD, BYN, KZT):")
         await state.set_state(SetupStates.waiting_for_currency)
     else:
         await show_main_menu(message)
@@ -44,8 +44,9 @@ async def process_new_currency(message: Message, state: FSMContext):
         user = get_user(message.from_user.id)
         await message.answer(f"✔ Валюта успешно изменена на {user[1]}.", reply_markup=keyboards.main_menu)
         await state.clear()
+        await state.set_state(SetupStates.awaiting_goal)
     else:
-        await message.answer("❌ Пожалуйста, введите корректный код валюты (например, USD, EUR, RUB).", reply_markup=keyboards.main_menu)
+        await message.answer("❌ Пожалуйста, введите корректный код валюты (например, USD, BYN, KZT).", reply_markup=keyboards.main_menu)
 
 @router.message(PiggyBankStates.awaiting_goal)
 async def set_goal(message: Message, state: FSMContext):
