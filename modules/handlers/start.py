@@ -20,7 +20,7 @@ class PiggyBankStates(StatesGroup):
 
 class keyboards():
     main_menu = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅ Назад", callback_data="main_menu")]
+        [InlineKeyboardButton(text="⬅ В меню", callback_data="main_menu")]
     ])
     
 @router.message(Command("start"))
@@ -39,27 +39,17 @@ async def cmd_start(message: Message, state: FSMContext):
 @router.message(SetupStates.waiting_for_currency)
 async def process_new_currency(message: Message, state: FSMContext):
     new_currency = message.text.upper()
+    user_id = message.from_user.id
     if len(new_currency) == 3 and new_currency.isalpha():
-        update_currency(message.from_user.id, new_currency)
-        user = get_user(message.from_user.id)
-        await message.answer(f"✔ Валюта успешно изменена на {user[1]}.", reply_markup=keyboards.main_menu)
+        update_currency(user_id, new_currency)
+        user = get_user(user_id)
+        await message.answer(f"✔ Валюта успешно изменена на {user[1]}.\n❕ Теперь давай установим цель накопления.\nВведи сумму:")
         await state.clear()
-        await state.set_state(SetupStates.waiting_for_goal)
+        await state.update_data(user_id=user_id)
+        await state.set_state(PiggyBankStates.awaiting_goal)
     else:
         await message.answer("❌ Пожалуйста, введите корректный код валюты (например, USD, BYN, KZT).", reply_markup=keyboards.main_menu)
-
-@router.message(SetupStates.waiting_for_goal)
-async def change_goal(event: CallbackQuery | Message, state: FSMContext):
-    if isinstance(event, CallbackQuery):
-        user_id = event.from_user.id
-        await event.message.answer("❕ Теперь давай установим цель накопления.\nВведи сумму:", reply_markup=keyboards.main_menu)
-    elif isinstance(event, Message):
-        user_id = event.from_user.id
-        await event.answer("❕ Теперь давай установим цель накопления.\nВведи сумму:", reply_markup=keyboards.main_menu)
-        return
-
-    await state.update_data(user_id=user_id)
-    await state.set_state(PiggyBankStates.awaiting_goal)
+    
 
 @router.message(PiggyBankStates.awaiting_goal)
 async def set_goal(message: Message, state: FSMContext):
