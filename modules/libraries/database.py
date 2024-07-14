@@ -1,9 +1,9 @@
 import sqlite3
 
-def get_connection():
+def get_connection() -> callable:
     return sqlite3.connect('database/piggy_bank.db')
 
-def init_db():
+def init_db() -> None:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
@@ -18,7 +18,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_user(user_id):
+def get_user(user_id) -> tuple:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM savings WHERE user_id = ?', (user_id,))
@@ -26,7 +26,7 @@ def get_user(user_id):
     conn.close()
     return result if result else (user_id, None, 0, None)
     
-def update_currency(user_id, currency):
+def update_currency(user_id, currency) -> None:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE savings SET currency = ? WHERE user_id = ?', (currency, user_id))
@@ -35,7 +35,7 @@ def update_currency(user_id, currency):
     conn.commit()
     conn.close()
 
-def update_goal(user_id, goal):
+def update_goal(user_id, goal) -> None:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE savings SET goal = ? WHERE user_id = ?', (goal, user_id))
@@ -44,11 +44,11 @@ def update_goal(user_id, goal):
     conn.commit()
     conn.close()
 
-def get_balance(user_id):
+def get_balance(user_id) -> float:
     user = get_user(user_id)
     return user[2]
 
-def update_balance(user_id, amount, decrease=False):
+def update_balance(user_id, amount, decrease=False) -> str:
     current_balance = get_balance(user_id)
     if decrease and current_balance < amount:
         return f'❌ Недостаточно средств. Текущий баланс: {current_balance:.2f} {user[1]}'
@@ -73,7 +73,7 @@ def update_balance(user_id, amount, decrease=False):
     else:
         return f'✔ Отлично!\n{amount:.2f} {updated_user[1]} добавлено к вашим сбережениям!'
 
-def reset(user_id):
+def reset(user_id) -> None:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE savings SET currency = NULL, amount = 0, goal = NULL, achived = FALSE WHERE user_id = ?', (user_id,))
