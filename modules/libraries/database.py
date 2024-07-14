@@ -60,14 +60,15 @@ def update_balance(user_id, amount, decrease=False) -> str:
         cursor.execute('UPDATE savings SET achived = ? WHERE user_id = ?', (True, user_id))
         conn.commit()
         conn.close()
-        return '🥳 Твоя цель накопления достигнута! Поздравляю!\nЧтобы начать новую копилку напишите /reset'
+        updated_user = get_user(user_id)
+        return f'🥳 Поздравляю! Твоя цель {updated_user[3]} {updated_user[1]} накопления достигнута!\n💰 Ваш текущий баланс: {updated_user[2]:.2f} {updated_user[1]}\nЧтобы начать новую копилку напишите /reset'
     else: 
         cursor.execute('UPDATE savings SET amount = ? WHERE user_id = ?', (new_balance, user_id))
         if cursor.rowcount == 0:
             cursor.execute('INSERT INTO savings (user_id, currency, amount) VALUES (?, ?, ?)', (user_id, 'USD', new_balance))
         conn.commit()
         conn.close()
-    updated_user = get_user(user_id)
+        updated_user = get_user(user_id)
     if decrease:
         return f'✔ Отлично!\n{amount:.2f} {updated_user[1]} было вычтено из ваших сбережений!'
     else:
