@@ -1,7 +1,7 @@
 import sqlite3
 
 def get_connection():
-    return sqlite3.connect('piggy_bank.db')
+    return sqlite3.connect('database/piggy_bank.db')
 
 def init_db():
     conn = get_connection()
