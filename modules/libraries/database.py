@@ -11,7 +11,8 @@ def init_db():
         user_id INTEGER PRIMARY KEY,
         currency TEXT NULL,
         amount REAL DEFAULT 0,
-        goal REAL NULL
+        goal REAL NULL,
+        achived BOOLEAN DEFAULT FALSE
     )
     ''')
     conn.commit()
@@ -43,20 +44,38 @@ def update_goal(user_id, goal):
     conn.commit()
     conn.close()
 
-
 def get_balance(user_id):
     user = get_user(user_id)
     return user[2]
 
-def update_balance(user_id, amount):
+def update_balance(user_id, amount, decrease=False):
+    current_balance = get_balance(user_id)
+    if decrease and current_balance < amount:
+        return f'❌ Недостаточно средств. Текущий баланс: {current_balance:.2f} {user[1]}'
+    new_balance = current_balance - amount if decrease else current_balance + amount
     conn = get_connection()
     cursor = conn.cursor()
-    user = get_user(user_id)
-    new_balance = user[2] + amount
-    cursor.execute('UPDATE savings SET amount = ? WHERE user_id = ?',
-                   (new_balance, user_id))
-    if cursor.rowcount == 0:
-        cursor.execute('INSERT INTO savings (user_id, currency, amount) VALUES (?, ?, ?)',
-                       (user_id, 'USD', amount))
+    if new_balance >= get_user(user_id)[3]:
+        cursor.execute('UPDATE savings SET amount = ? WHERE user_id = ?', (new_balance, user_id))
+        cursor.execute('UPDATE savings SET achived = ? WHERE user_id = ?', (True, user_id))
+        conn.commit()
+        conn.close()
+        return '🥳 Твоя цель накопления достигнута! Поздравляю!\nЧтобы начать новую копилку напишите /reset'
+    else: 
+        cursor.execute('UPDATE savings SET amount = ? WHERE user_id = ?', (new_balance, user_id))
+        if cursor.rowcount == 0:
+            cursor.execute('INSERT INTO savings (user_id, currency, amount) VALUES (?, ?, ?)', (user_id, 'USD', new_balance))
+        conn.commit()
+        conn.close()
+    updated_user = get_user(user_id)
+    if decrease:
+        return f'✔ Отлично!\n{amount:.2f} {updated_user[1]} было вычтено из ваших сбережений!'
+    else:
+        return f'✔ Отлично!\n{amount:.2f} {updated_user[1]} добавлено к вашим сбережениям!'
+
+def reset(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE savings SET currency = NULL, amount = 0, goal = NULL, achived = FALSE WHERE user_id = ?', (user_id,))
     conn.commit()
     conn.close()

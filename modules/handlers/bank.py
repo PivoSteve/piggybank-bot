@@ -5,62 +5,49 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from modules.libraries.database import get_user, get_balance, update_balance, update_currency, update_goal
-import modules.libraries.tfzolib as lib
+from modules.libraries.tfzolib import generators, keyboards, orders
 import asyncio
 
 router = Router()
 
-class PiggyBankStates(StatesGroup):
-    waiting_for_amount = State()
-    waiting_for_currency = State()
-    awaiting_goal = State()
-
-class keyboards():
-    main_menu = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅ Назад", callback_data="main_menu")]
-    ])
-
 @router.callback_query(F.data == 'settings')
 async def settings(callback: CallbackQuery):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💱 Изменить валюту", callback_data="change_currency"),
-         InlineKeyboardButton(text="💰 Изменить цель", callback_data="change_goal")]
-    ])
-    await callback.message.answer(f"🛠️ Настройки:", reply_markup=keyboard)
+    await callback.message.answer(f"🛠️ Настройки:", reply_markup=keyboards.settings)
 
 @router.callback_query(F.data == 'add')
 async def process_add(callback: CallbackQuery, state: FSMContext):
     user = get_user(callback.from_user.id)
     await callback.answer()
-    await state.set_state(PiggyBankStates.waiting_for_amount)
+    await state.set_state(orders.PiggyBankStates.waiting_for_amount)
     await callback.message.answer(f"❕ Введите сумму в {user[1]} для добавления:", reply_markup=keyboards.main_menu)
 
-@router.callback_query(F.data == 'balance')
-async def process_balance(callback: CallbackQuery):
+@router.callback_query(F.data == 'remove')
+async def process_remove(callback: CallbackQuery, state: FSMContext):
     user = get_user(callback.from_user.id)
     await callback.answer()
-    await callback.message.answer(f"✔ Ваш текущий баланс: {user[2]:.2f} {user[1]}", reply_markup=keyboards.main_menu)
+    await state.set_state(orders.PiggyBankStates.waiting_for_decrease_amount)
+    await callback.message.answer(f"❕ Введите сумму в {user[1]} для удаления:", reply_markup=keyboards.main_menu)
 
 @router.callback_query(F.data == 'change_currency')
 async def process_change_currency(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    await state.set_state(PiggyBankStates.waiting_for_currency)
+    await state.set_state(orders.PiggyBankStates.waiting_for_currency)
     await callback.message.answer("❕ Введите новую валюту (например: USD, BYN, KZT):", reply_markup=keyboards.main_menu)
 
 @router.callback_query(F.data == 'change_goal')
 async def change_goal(event: CallbackQuery | Message, state: FSMContext):
     if isinstance(event, CallbackQuery):
         user_id = event.from_user.id
-        await event.message.answer("❕ Теперь давай установим цель накопления.\nВведи сумму:", reply_markup=keyboards.main_menu)
+        await event.message.answer("❔ Введите цель накопления:", reply_markup=keyboards.main_menu)
     elif isinstance(event, Message):
         user_id = event.from_user.id
-        await event.answer("❕ Теперь давай установим цель накопления.\nВведи сумму:", reply_markup=keyboards.main_menu)
+        await event.answer("❔ Введите цель накопления:", reply_markup=keyboards.main_menu)
         return
 
     await state.update_data(user_id=user_id)
-    await state.set_state(PiggyBankStates.awaiting_goal)
+    await state.set_state(orders.PiggyBankStates.awaiting_goal)
 
-@router.message(PiggyBankStates.awaiting_goal)
+@router.message(orders.PiggyBankStates.awaiting_goal)
 async def set_goal(message: Message, state: FSMContext):
     data = await state.get_data()
     user_id = data.get('user_id')
@@ -73,21 +60,34 @@ async def set_goal(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("❌ Пожалуйста, введи корректную сумму для цели.", reply_markup=keyboards.main_menu)
 
-@router.message(PiggyBankStates.waiting_for_amount, F.text.regexp(r'^\d+(\.\d+)?$'))
+@router.message(orders.PiggyBankStates.waiting_for_decrease_amount, F.text.regexp(r'^\d+(\.\d+)?$'))
+async def process_decrease_amount(message: Message, state: FSMContext):
+    user = get_user(message.from_user.id)   
+    try:
+        damount = float(message.text)
+        user_id = message.from_user.id
+        u_b = update_balance(user_id, damount, True)
+        updated_user = get_user(user_id)
+        await message.answer(f"{u_b}", reply_markup=keyboards.main_menu)
+        await state.clear()
+    except ValueError:
+        await message.answer("❌ Пожалуйста, введите корректную сумму.", reply_markup=keyboards.main_menu)
+
+@router.message(orders.PiggyBankStates.waiting_for_amount, F.text.regexp(r'^\d+(\.\d+)?$'))
 async def process_amount(message: Message, state: FSMContext):
     user = get_user(message.from_user.id)   
     
     try:
         amount = float(message.text)
         user_id = message.from_user.id
-        update_balance(user_id, amount)
+        u_b = update_balance(user_id, amount)
         updated_user = get_user(user_id)
-        await message.answer(f"✔ Отлично!\n{amount:.2f} {updated_user[1]} добавлено к вашим сбережениям! {lib.generators.motivation_gen()}.", reply_markup=keyboards.main_menu)
+        await message.answer(f"{u_b} {generators.motivation_gen()}.", reply_markup=keyboards.main_menu)
         await state.clear()
     except ValueError:
         await message.answer("❌ Пожалуйста, введите корректную сумму.", reply_markup=keyboards.main_menu)
 
-@router.message(PiggyBankStates.waiting_for_currency)
+@router.message(orders.PiggyBankStates.waiting_for_currency)
 async def process_new_currency(message: Message, state: FSMContext):
     new_currency = message.text.upper()
     if len(new_currency) == 3 and new_currency.isalpha():
@@ -98,7 +98,7 @@ async def process_new_currency(message: Message, state: FSMContext):
     else:
         await message.answer("❌ Пожалуйста, введите корректный код валюты (например, USD, EUR, RUB).", reply_markup=keyboards.main_menu)
 
-@router.message(PiggyBankStates.waiting_for_amount)
+@router.message(orders.PiggyBankStates.waiting_for_amount)
 async def process_invalid_amount(message: Message):
     await message.answer("❌ Пожалуйста, введите корректную сумму (только цифры и точка).", reply_markup=keyboards.main_menu)
 

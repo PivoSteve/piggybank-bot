@@ -1,4 +1,6 @@
 import random
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.state import State, StatesGroup
 
 class generators():
     def motivation_gen():
@@ -35,3 +37,35 @@ class generators():
             'Ты на правильном пути к финансовому благополучию',
         ]
         return random.choice(motivation_list)
+
+    
+class keyboards():
+    main_menu = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅ В меню", callback_data="main_menu")]
+    ])
+    settings = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💱 Изменить валюту", callback_data="change_currency"),
+         InlineKeyboardButton(text="💰 Изменить цель", callback_data="change_goal")]
+    ])
+    reset = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✔ Я уверен", callback_data="reset_confirmed"),
+         InlineKeyboardButton(text="⬅ В меню", callback_data="main_menu")]
+    ])
+    main = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Добавить", callback_data="add"),
+         InlineKeyboardButton(text="➖ Отнять", callback_data="remove")],
+        [InlineKeyboardButton(text="🔃 Сброс", callback_data="reset"),
+         InlineKeyboardButton(text="🛠️ Настройки", callback_data="settings")]
+    ])
+
+class orders(): 
+    class SetupStates(StatesGroup):
+        waiting_for_currency = State()
+        waiting_for_goal = State()
+        awaiting_goal = State()
+
+    class PiggyBankStates(StatesGroup):
+        waiting_for_amount = State()
+        waiting_for_currency = State()
+        awaiting_goal = State()
+        waiting_for_decrease_amount = State()
